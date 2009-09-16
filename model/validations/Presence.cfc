@@ -12,7 +12,7 @@
       local.empty = local.value.isEmpty();
     }
     if (local.empty) {
-      _model.errors.add(property, _model.muonEvaluate(de(_options.message)));
+      _model.errors().add(property, _model.muonEvaluate(de(_options.message)));
     }
   }
 
