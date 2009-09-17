@@ -11,12 +11,13 @@
   }
 
   function muonSetupDataMgr(datasource, schemaPath) {
+    var isTest = reFindNoCase("_test$", datasource);
     if (datasource eq "simulation") {
       _muon.dataMgr = createObject("component", "external.dataMgr.DataMgr").init("test", "Sim");
     } else {
       _muon.dataMgr = createObject("component", "external.dataMgr.DataMgr").init(datasource);
     }
-    _muon.dataMgr.loadXml(muonReadFile(schemaPath));
+    _muon.dataMgr.loadXml(muonReadFile(schemaPath), isTest, isTest);
   }
 
   function muonSetupModels(modelPrefix) {
@@ -133,6 +134,10 @@
 
   function muonDeleteRecord() {
     return _muon.dataMgr.deleteRecord(argumentCollection=arguments);
+  }
+
+  function muonModelData(modelName) {
+    return _muon.models[modelName];
   }
 
   function muonCamelCase(word) {

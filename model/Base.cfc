@@ -1,11 +1,14 @@
 <cfcomponent>
 <cfinclude template="accessors.cfm">
 <cfinclude template="callbacks.cfm">
+<cfinclude template="associations.cfm">
 <cfinclude template="validations.cfm">
 <cfscript>
 
+  _muon = { data = {}, defaults = {}, dynamicMethods = {} };
+
   function init(dao, metaData) {
-    _muon = { dao = dao, data = {}, defaults={}, dynamicMethods = {} };
+    _muon.dao = dao;
     structAppend(_muon, metaData);
     muonSetDefaults();
     muonGeneratePropertyAccessors();
