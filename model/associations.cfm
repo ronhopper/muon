@@ -5,43 +5,29 @@
   function belongsTo() {
     var local = {};
     local.args = muonExtractAssociationArgs(argumentCollection=arguments);
-    if (!structKeyExists(local.args, "modelName")) {
-      local.args.modelName = local.args.associationName;
-    }
-    if (!structKeyExists(local.args, "foreignKey")) {
-      local.args.foreignKey = local.args.associationName & "Id";
-    }
+    local.args.type = "belongsTo";
     _muonAssociations[local.args.associationName] = local.args;
-    _muon.dynamicMethods["get#local.args.associationName#"] = "muonGetBelongsTo";
-    _muon.dynamicMethods["set#local.args.associationName#"] = "muonSetBelongsTo";
   }
 
   function hasOne() {
     var local = {};
     local.args = muonExtractAssociationArgs(argumentCollection=arguments);
+    local.args.type = "hasOne";
     _muonAssociations[local.args.associationName] = local.args;
-    //TODO
   }
 
   function hasMany() {
     var local = {};
     local.args = muonExtractAssociationArgs(argumentCollection=arguments);
-    if (!structKeyExists(local.args, "modelName")) {
-      local.args.modelName = createObject("component", "muon.util.Inflector").init().singularize(local.args.associationName);
-    }
-    if (!structKeyExists(local.args, "foreignKey")) {
-      local.args.foreignKey = listLast(getMetaData(this).name, ".") & "Id";
-    }
+    local.args.type = "hasMany";
     _muonAssociations[local.args.associationName] = local.args;
-    _muon.dynamicMethods["list#local.args.associationName#"] = "muonListHasMany";
-    //TODO
   }
 
   function hasAndBelongsToMany() {
     var local = {};
     local.args = muonExtractAssociationArgs(argumentCollection=arguments);
+    local.args.type = "hasAndBelongsToMany";
     _muonAssociations[local.args.associationName] = local.args;
-    //TODO
   }
 
   function muonExtractAssociationArgs() {
@@ -56,6 +42,69 @@
       structAppend(local.args, arguments);
     }
     return local.args;
+  }
+
+  function muonGenerateAssociationMethods() {
+    var local = {};
+    for (local.key in _muonAssociations) {
+      local.assoc = _muonAssociations[local.key];
+      switch (local.assoc.type) {
+        case "belongsTo":
+          muonGenerateBelongsToMethods(local.assoc);
+          break;
+        case "hasOne":
+          muonGenerateHasOneMethods(local.assoc);
+          break;
+        case "hasMany":
+          muonGenerateHasManyMethods(local.assoc);
+          break;
+        case "hasAndBelongsTo":
+          muonGenerateHasAndBelongsToManyMethods(local.assoc);
+          break;
+      }
+    }
+  }
+
+  function muonGenerateBelongsToMethods(assoc) {
+    if (!structKeyExists(assoc, "modelName")) {
+      assoc.modelName = assoc.associationName;
+    }
+    if (!structKeyExists(assoc, "foreignKey")) {
+      assoc.foreignKey = assoc.associationName & "Id";
+    }
+    _muon.dynamicMethods["get#assoc.associationName#"] = "muonGetBelongsTo";
+    _muon.dynamicMethods["set#assoc.associationName#"] = "muonSetBelongsTo";
+  }
+
+
+  function muonGenerateHasOneMethods(assoc) {
+    if (!structKeyExists(assoc, "modelName")) {
+      assoc.modelName = assoc.associationName;
+    }
+    if (!structKeyExists(assoc, "foreignKey")) {
+      assoc.foreignKey = _muon.modelName & "Id";
+    }
+    _muon.dynamicMethods["get#assoc.associationName#"] = "muonGetHasOne";
+    _muon.dynamicMethods["set#assoc.associationName#"] = "muonSetHasOne"; //TODO
+  }
+
+  function muonGenerateHasManyMethods(assoc) {
+    assoc.singularName = _muon.dao.inflector().singularize(assoc.associationName);
+    if (!structKeyExists(assoc, "modelName")) {
+      assoc.modelName = assoc.singularName;
+    }
+    if (!structKeyExists(assoc, "foreignKey")) {
+      assoc.foreignKey = _muon.modelName & "Id";
+    }
+    _muon.dynamicMethods["list#assoc.associationName#"] = "muonListHasMany";
+    _muon.dynamicMethods["new#assoc.singularName#"] = "muonNewHasMany"; //TODO
+    _muon.dynamicMethods["get#assoc.singularName#"] = "muonGetHasMany"; //TODO
+    _muon.dynamicMethods["add#assoc.singularName#"] = "muonAddHasMany"; //TODO
+    _muon.dynamicMethods["remove#assoc.singularName#"] = "muonRemoveHasMany"; //TODO
+  }
+
+  function muonGenerateHasAndBelongsToManyMethods(assoc) {
+    //TODO
   }
 
   function muonGetBelongsTo(method, args) {
@@ -73,30 +122,24 @@
     muonSet("set#local.assoc.foreignKey#", local.args);
   }
 
-  function muonListHasMany(method, arg) {
+  function muonGetHasOne(method, args) {
+    var local = {};
+    local.assoc = _muonAssociations[right(method, len(method) - 3)];
+    local.args = { data = { #local.assoc.foreignKey# = this.getId() }};
+    return _muon.dao.muonGet("get#local.assoc.modelName#", local.args);
+  }
+
+  function muonListHasMany(method, args) {
     var local = {};
     local.assoc = _muonAssociations[right(method, len(method) - 4)];
     local.tableName = _muon.dao.muonModelData(local.assoc.modelName).tableName;
-    local.args = { data = {} };
-    local.args.data[local.assoc.foreignKey] = this.getId();
-    return _muon.dao.muonList("list#local.tableName#", local.args);
-  }
-
-  function muonList(method, args) {
-    var local = {};
-    local.args = { tableName = muonCamelCase(right(method, len(method) - 4)) };
-    if (isNumeric(listFirst(structKeyList(args)))) {
-      local.count = arrayLen(args);
-      if (local.count ge 1) local.args.data = args[1];
-      if (local.count ge 2) local.args.orderBy = args[2];
-      if (local.count ge 3) local.args.maxRows = args[3];
-      if (local.count ge 4) local.args.fieldList = args[4];
-      if (local.count ge 5) local.args.advSql = args[5];
-      if (local.count ge 6) local.args.filters = args[6];
+    if (isNumeric(listFirst(structKeyList(args))) and arrayLen(args) ge 1) {
+      args[1][local.assoc.foreignKey] = this.getId();
     } else {
-      structAppend(local.args, args);
+      if (!structKeyExists(args, "data")) args.data = {};
+      args.data[local.assoc.foreignKey] = this.getId();
     }
-    return _muon.dataMgr.getRecords(argumentCollection=local.args);
+    return _muon.dao.muonList("list#local.tableName#", args);
   }
 
 </cfscript>

@@ -12,6 +12,7 @@
     structAppend(_muon, metaData);
     muonSetDefaults();
     muonGeneratePropertyAccessors();
+    muonGenerateAssociationMethods();
     return this;
   }
 
