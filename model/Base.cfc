@@ -1,16 +1,27 @@
 <cfcomponent>
+<cfinclude template="accessors.cfm">
+<cfinclude template="callbacks.cfm">
 <cfinclude template="validations.cfm">
 <cfscript>
 
-  function init(dao) {
-    _muon = { dao = dao, data = {} };
-    _muon.modelName = listLast(getMetaData(this).name, ".");
-    _muon.tableName = dao.muonAssociation(_muon.modelName).tableName;
+  function init(dao, metaData) {
+    _muon = { dao = dao, data = {}, defaults={}, dynamicMethods = {} };
+    structAppend(_muon, metaData);
+    muonSetDefaults();
+    muonGeneratePropertyAccessors();
     return this;
   }
 
-  function isNewRecord() {
-    return structKeyExists(_muon.data, "id") and _muon.data.id neq "";
+  function muonSetDefaults() {
+    var local = {};
+    local.fields = xmlSearch(_muon.schema, "//field");
+    for (local.i = 1; local.i <= arrayLen(local.fields); local.i++) {
+      local.attrs = local.fields[local.i].xmlAttributes;
+      local.property = local.attrs.ColumnName;
+      if (structKeyExists(local.attrs, "Default")) {
+        _muon.defaults[local.property] = evaluate(local.attrs.Default);
+      }
+    }
   }
 
   function errors() {
@@ -20,82 +31,68 @@
     return _muon.errors;
   }
 
-  function setProperties() {
+  function isNewRecord() {
+    return !structKeyExists(_muon.data, "id") or _muon.data.id eq "";
+  }
+
+  function onMissingMethod(missingMethodName, missingMethodArguments) {
     var local = {};
-    if (isNumeric(listFirst(structKeyList(arguments)))) {
-      local.args = arguments[1];
+    if (structKeyExists(_muon.dynamicMethods, missingMethodName)) {
+      local.args = { method = missingMethodName, args = missingMethodArguments };
+      return muonInvoke(_muon.dynamicMethods[missingMethodName], local.args);
     } else {
-      local.args = arguments;
-    }
-    for (local.key in local.args) {
-      evaluate("this.set#local.key#(local.args[local.key])");
+      _muon.dao.muonThrowMethodNotFound(missingMethodName, _muon.classPath);
     }
   }
 
   function save() {
     var local = {};
-    local.isNewRecord = isNewRecord();
     errors().clear();
-    _muonRunValidations();
+    if (!muonRunCallbacks("beforeValidation", true)) return false;
+    muonRunValidations();
     if (!errors().isEmpty()) return false;
-    _muonSave();
+    muonRunCallbacks("afterValidation", false);
+    if (!muonRunCallbacks("beforeSave", true)) return false;
+    muonSave();
+    muonRunCallbacks("afterSave", false);
     return true;
   }
 
   function delete() {
-    _muonDelete();
-  }
-
-  function onMissingMethod(missingMethodName, missingMethodArguments) {
-    if (reFindNoCase("get.", missingMethodName) eq 1) {
-      return _muonGet(right(missingMethodName, len(missingMethodName) - 3));
-
-    } else if (reFindNoCase("set.", missingMethodName) eq 1) {
-      return _muonSet(right(missingMethodName, len(missingMethodName) - 3), missingMethodArguments[1]);
-
-    } else {
-      _muon.dao._throwMethodNotFound(missingMethodName);
-    }
+    if (!muonRunCallbacks("beforeDelete", true)) return false;
+    muonDelete();
+    muonRunCallbacks("afterDelete", false);
   }
 
   function muonEvaluate(expression) {
     return evaluate(expression);
   }
 
-  function _muonSetProperties() {
-    var local = {};
-    if (isNumeric(listFirst(structKeyList(arguments)))) {
-      local.args = arguments[1];
+  function muonSave() {
+    var id = "";
+    if (isNewRecord()) {
+      id = _muon.dao.muonInsertRecord(_muon.tableName, _muon.data);
+      if (isDefined("id")) _muon.data.id = id;
     } else {
-      local.args = arguments;
-    }
-    if (isStruct(local.args)) {
-      structAppend(_muon.data, local.args);
-    } else {
-      local.fields = listToArray(local.args.columnList);
-      for (local.i = 1; local.i <= arrayLen(local.fields); local.i++) {
-        local.field = local.fields[local.i];
-        _muon.data[local.field] = local.args[local.field];
-      }
+      _muon.dao.muonUpdateRecord(_muon.tableName, _muon.data);
     }
   }
 
-  function _muonGet(property) {
-    return _muon.data[property];
-  }
-
-  function _muonSet(property, value) {
-    _muon.data[property] = value;
-  }
-
-  function _muonSave() {
-    var id = _muon.dao.muonSaveRecord(_muon.tableName, _muon.data);
-    if (isDefined("id")) _muon.data.id = id;
-  }
-
-  function _muonDelete() {
+  function muonDelete() {
     var data = { id = _muon.data.id };
     _muon.dao.muonDeleteRecord(_muon.tableName, data);
   }
 
-</cfscript></cfcomponent>
+</cfscript>
+
+<cffunction name="muonInvoke">
+  <cfargument name="methodName">
+  <cfargument name="methodArguments">
+  <cfset var result = "">
+  <cfinvoke method="#methodName#" argumentCollection="#methodArguments#" returnVariable="result">
+  <cfif isDefined("result")>
+    <cfreturn result>
+  </cfif>
+</cffunction>
+
+</cfcomponent>

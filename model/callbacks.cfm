@@ -39,19 +39,19 @@
                 createObject("component", "Callback").init(this, arguments, "update"));
   }
 
-  function beforeSave(methods) {
+  function beforeSave() {
     arrayAppend(_muonCallbacks.beforeSave,
-                createObject("component", "Callback").init(this, methods, "save"));
+                createObject("component", "Callback").init(this, arguments, "save"));
   }
 
-  function beforeCreate(methods) {
+  function beforeCreate() {
     arrayAppend(_muonCallbacks.beforeSave,
-                createObject("component", "Callback").init(this, methods, "create"));
+                createObject("component", "Callback").init(this, arguments, "create"));
   }
 
-  function beforeUpdate(methods) {
+  function beforeUpdate() {
     arrayAppend(_muonCallbacks.beforeSave,
-                createObject("component", "Callback").init(this, methods, "update"));
+                createObject("component", "Callback").init(this, arguments, "update"));
   }
 
   function afterSave() {
@@ -79,7 +79,7 @@
                 createObject("component", "Callback").init(this, arguments, "delete"));
   }
 
-  function _muonRunCallbacks(hook, useResult) {
+  function muonRunCallbacks(hook, useResult) {
     var local = {};
     for (local.i = 1; local.i <= arrayLen(_muonCallbacks[hook]); local.i++) {
       local.result = _muonCallbacks[hook][local.i].run(useResult);

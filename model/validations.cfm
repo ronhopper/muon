@@ -54,7 +54,7 @@
     arrayAppend(_muonValidations, createObject("component", "Callback").init(this, arguments, "update"));
   }
 
-  function _muonRunValidations() {
+  function muonRunValidations() {
     var local = {};
     for (local.i = 1; local.i <= arrayLen(_muonValidations); local.i++) {
       _muonValidations[local.i].run(false);
