@@ -1,5 +1,5 @@
-<!--- 2.2.0.2 (Build 151) --->
-<!--- Last Updated: 2009-06-13 --->
+<!--- 2.5 Alpha 1 (Build 156) --->
+<!--- Last Updated: 2009-08-18 --->
 <!--- Created by Steve Bryant 2004-12-08 --->
 <cfcomponent extends="DataMgr" displayname="Data Manager for MS Access" hint="I manage data interactions with the MS Access database. I can be used to handle inserts/updates.">
 
@@ -22,7 +22,7 @@
 	<cfset var type = getDBDataType(sField.CF_DataType)>
 	<cfset var result = "">
 	
-	<cfsavecontent variable="result"><cfoutput>#escape(sField.ColumnName)# <cfif sField.Increment>COUNTER<cfelseif getTypeOfCFType(sField.CF_DataType) EQ "numeric"><!---  AND StructKeyExists(sField,"scale") AND sField.scale GT 0 ---> float<cfelse>#getDBDataType(sField.CF_DataType)#</cfif><cfif isStringType(type)>(#sField.Length#)</cfif> <cfif sField.PrimaryKey OR NOT sField.AllowNulls>NOT </cfif>NULL</cfoutput></cfsavecontent>
+	<cfsavecontent variable="result"><cfoutput>#escape(sField.ColumnName)# <cfif sField.Increment>COUNTER<cfelseif getTypeOfCFType(sField.CF_DataType) EQ "numeric"><!---  AND StructKeyExists(sField,"scale") AND sField.scale GT 0 ---> float<cfelse>#getDBDataType(sField.CF_DataType)#</cfif><cfif isStringType(type)>(#Min(sField.Length,255)#)</cfif> <cfif sField.PrimaryKey OR NOT sField.AllowNulls>NOT </cfif>NULL</cfoutput></cfsavecontent>
 	
 	<cfreturn result>
 </cffunction>
@@ -82,7 +82,7 @@
 	
 	<!--- create the sql to create the table --->
 	<cfsavecontent variable="CreateSQL"><cfoutput>
-	CREATE TABLE #arguments.tablename# (<cfloop index="ii" from="1" to="#ArrayLen(arrFields)#" step="1">
+	CREATE TABLE #escape(arguments.tablename)# (<cfloop index="ii" from="1" to="#ArrayLen(arrFields)#" step="1">
 		#sqlCreateColumn(arrFields[ii])#<cfif ii LT ArrayLen(arrFields)> ,</cfif></cfloop>
 		<cfif Len(pkfields)>,
 		CONSTRAINT [PK_#tablename#] PRIMARY KEY 
@@ -200,8 +200,8 @@
 	<cfscript>
 	var qRawFetch = 0;
 	var arrStructure = 0;
-	var tmpStruct = StructNew();
-	var i = 0;
+	var sField = StructNew();
+	var ii = 0;
 
 	var PrimaryKeys = 0;
 	var TableData = ArrayNew(1);
@@ -211,28 +211,23 @@
 	<cfset arrStructure = getMetaData(qRawFetch)>
 	
 	<cfif isArray(arrStructure)>
-		<cfloop index="i" from="1" to="#ArrayLen(arrStructure)#" step="1">
-			<cfset tmpStruct = StructNew()>
-			<cfset tmpStruct["ColumnName"] = arrStructure[i].Name>
-			<cfset tmpStruct["CF_DataType"] = getCFDataType(arrStructure[i].TypeName)>
+		<cfloop index="ii" from="1" to="#ArrayLen(arrStructure)#" step="1">
+			<cfset sField = StructNew()>
+			<cfset sField["ColumnName"] = arrStructure[ii].Name>
+			<cfset sField["CF_DataType"] = getCFDataType(arrStructure[ii].TypeName)>
 			<!--- %% Ugly guess --->
-			<cfif arrStructure[i].TypeName eq "COUNTER" OR ( i eq 1 AND arrStructure[i].TypeName eq "INT" AND Right(arrStructure[i].Name,2) eq "ID" )>
-				<cfset tmpStruct["PrimaryKey"] = true>
-				<cfset tmpStruct["Increment"] = true>
-				<cfset tmpStruct["AllowNulls"] = false>
-			<cfelse>
-				<cfset tmpStruct["PrimaryKey"] = false>
-				<cfset tmpStruct["Increment"] = false>
-				<cfset tmpStruct["AllowNulls"] = true>
+			<cfif arrStructure[ii].TypeName eq "COUNTER" OR ( ii EQ 1 AND arrStructure[ii].TypeName EQ "INT" AND Right(arrStructure[ii].Name,2) EQ "ID" )>
+				<cfset sField["PrimaryKey"] = true>
+				<cfset sField["Increment"] = true>
+				<cfset sField["AllowNulls"] = false>
 			</cfif>
 			<!--- %% Ugly guess --->
-			<cfif isStringType(arrStructure[i].TypeName) AND NOT tmpStruct["CF_DataType"] eq "CF_SQL_LONGVARCHAR">
-				<cfset tmpStruct["length"] = 255>
+			<cfif isStringType(arrStructure[ii].TypeName) AND NOT sField["CF_DataType"] EQ "CF_SQL_LONGVARCHAR">
+				<cfset sField["length"] = 255>
 			</cfif>
-			<cfset tmpStruct["Special"] = "">
 			
-			<cfif Len(tmpStruct.CF_DataType)>
-				<cfset ArrayAppend(TableData,StructCopy(tmpStruct))>
+			<cfif Len(sField.CF_DataType)>
+				<cfset ArrayAppend(TableData,adjustColumnArgs(sField))>
 			</cfif>
 		</cfloop>
 	<cfelse>

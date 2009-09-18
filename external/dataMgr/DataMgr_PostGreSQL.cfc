@@ -1,5 +1,5 @@
-<!--- 2.2.0.2 (Build 151) --->
-<!--- Last Updated: 2009-06-13 --->
+<!--- 2.5 Alpha 1 (Build 156) --->
+<!--- Last Updated: 2009-08-18 --->
 <!--- Created by Steve Bryant 2004-12-08 --->
 <cfcomponent extends="DataMgr" displayname="Data Manager for PostGreSQL" hint="I manage data interactions with the PostGreSQL database. I can be used to handle inserts/updates.">
 
@@ -202,18 +202,13 @@
 		</cfif>
 		<cfif isBoolean(NotNull)>
 			<cfset tmpStruct["AllowNulls"] = NotNull>
-		<cfelse>
-			<cfset tmpStruct["AllowNulls"] = true>
 		</cfif>
 		<cfif Len(Default)>
 			<cfset tmpStruct["Default"] = Default>
 		</cfif>
-		<cfset tmpStruct["Precision"] = "">
-		<cfset tmpStruct["Scale"] = "">
-		<cfset tmpStruct["Special"] = "">
 		
 		<cfif Len(tmpStruct.CF_DataType)>
-			<cfset ArrayAppend(TableData,StructCopy(tmpStruct))>
+			<cfset ArrayAppend(TableData,adjustColumnArgs(tmpStruct))>
 		</cfif>
 	</cfoutput>
 	

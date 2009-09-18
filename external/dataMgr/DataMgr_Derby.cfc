@@ -1,5 +1,5 @@
-<!--- 2.2.0.2 (Build 151) --->
-<!--- Last Updated: 2009-06-13 --->
+<!--- 2.5 Alpha 1 (Build 156) --->
+<!--- Last Updated: 2009-08-18 --->
 <!--- Created by Steve Bryant 2004-12-08 --->
 <cfcomponent extends="DataMgr" displayname="Data Manager for MS SQL Server" hint="I manage data interactions with the Derby database. I can be used to handle inserts/updates.">
 
@@ -163,6 +163,7 @@
 		</cfif>
 	</cfcatch>
 	</cftry>
+	
 	<cfoutput query="qColumns">
 		<cfset sTemp = StructNew()>
 		<cfset sTemp["ColumnName"] = Column_Name>
@@ -172,27 +173,25 @@
 		<!--- Determine increment/default --->
 		<cfif ListFirst(Column_Default_Value,":") EQ "AUTOINCREMENT">
 			<cfset sTemp["Increment"] = true>
-		<cfelseif Len(Column_Default_Value)>
+		<cfelseif Len(Column_Default_Value) AND Column_Default_Value NEQ "GENERATED_BY_DEFAULT">
 			<cfset sTemp["Default"] = Column_Default_Value>
 		</cfif>
 		
-		<cfif Len(Column_Size) AND isNumeric(Column_Size) AND NOT sTemp["CF_DataType"] EQ "CF_SQL_LONGVARCHAR">
-			<cfset sTemp["length"] = Column_Size>
+		<cfif isStringType(Type_Name) AND Len(Column_Size) AND isNumeric(Column_Size) AND sTemp["CF_DataType"] NEQ "CF_SQL_LONGVARCHAR">
+			<cfset sTemp["Length"] = Column_Size>
 		</cfif>
 		<cfset sTemp["AllowNulls"] = Is_Nullable>
 		<!--- <cfset sTemp["Precision"] = Decimal_Digits>
 		<cfset sTemp["Scale"] = Decimal_Digits> --->
-		<cfset sTemp["Special"] = "">
 		
 		<cfif Len(sTemp.CF_DataType)>
-			<cfset ArrayAppend(TableData,StructCopy(sTemp))>
+			<cfset ArrayAppend(TableData,adjustColumnArgs(sTemp))>
 		</cfif>
 	</cfoutput>
 	
 	<cfreturn TableData>
 </cffunction>
 
-<!--- %%TODO: --->
 <cffunction name="getCFDataType" access="public" returntype="string" output="no" hint="I return the cfqueryparam datatype from the database datatype.">
 	<cfargument name="type" type="string" required="yes" hint="The database data type.">
 	
@@ -227,7 +226,6 @@
 	<cfreturn result>
 </cffunction>
 
-<!--- %%TODO: --->
 <cffunction name="getDBDataType" access="public" returntype="string" output="no" hint="I return the database datatype from the cfqueryparam datatype.">
 	<cfargument name="CF_Datatype" type="string" required="yes">
 	
@@ -272,6 +270,34 @@
 	<cfargument name="value" type="string" required="yes">
 	
 	<cfreturn isDate(arguments.value)><!---  AND Year(arguments.value) GTE 1753 AND arguments.value LT CreateDate(2079,6,7) --->
+</cffunction>
+
+<cffunction name="runSQLArray" access="public" returntype="any" output="no" hint="I run the given array representing SQL code (structures in the array represent params).">
+	<cfargument name="sqlarray" type="array" required="yes">
+	
+	<cfset var qQuery = 0>
+	<cfset var ii = 0>
+	<cfset var temp = "">
+	<cfset var aSQL = cleanSQLArray(arguments.sqlarray)>
+	<cfset var sQuery = {name="qQuery",datasource=variables.datasource}>
+	
+	<cfif StructKeyExists(variables,"username") AND StructKeyExists(variables,"password")>
+		<cfset sQuery["username"] = "#variables.username#">
+		<cfset sQuery["password"] = "#variables.password#">
+	</cfif>
+	<cfif variables.SmartCache>
+		<cfset sQuery["cachedafter"] = "#variables.CacheDate#">
+	</cfif>
+	<cfif StructKeyExists(arguments,"maxrows") AND isNumeric(arguments.maxrows) AND arguments.maxrows GT 0>
+		<cfset sQuery["maxrows"] = "#arguments.maxrows#">
+	</cfif>
+	
+	<cfquery attributeCollection="#sQuery#"><cfloop index="ii" from="1" to="#ArrayLen(aSQL)#" step="1"><cfif IsSimpleValue(aSQL[ii])><cfset temp = aSQL[ii]>#Trim(DMPreserveSingleQuotes(temp))#<cfelseif IsStruct(aSQL[ii])><cfset aSQL[ii] = queryparam(argumentCollection=aSQL[ii])><cfswitch expression="#aSQL[ii].cfsqltype#"><cfcase value="CF_SQL_BIT">#getBooleanSqlValue(aSQL[ii].value)#</cfcase><cfcase value="CF_SQL_DATE,CF_SQL_DATETIME">#CreateODBCDateTime(aSQL[ii].value)#</cfcase><cfdefaultcase><!--- <cfif ListFindNoCase(variables.dectypes,aSQL[ii].cfsqltype)>#Val(aSQL[ii].value)#<cfelse> ---><cfqueryparam value="#aSQL[ii].value#" cfsqltype="#aSQL[ii].cfsqltype#" maxlength="#aSQL[ii].maxlength#" scale="#aSQL[ii].scale#" null="#aSQL[ii].null#" list="#aSQL[ii].list#" separator="#aSQL[ii].separator#"><!--- </cfif> ---></cfdefaultcase></cfswitch></cfif> </cfloop></cfquery>
+	
+	<cfif IsDefined("qQuery")>
+		<cfreturn qQuery>
+	</cfif>
+	
 </cffunction>
 
 <cffunction name="checkTable" access="private" returntype="boolean" output="no" hint="I check to see if the given table exists in the Datamgr.">
@@ -328,6 +354,7 @@
 
 	<cfset var strtypes = "char,nchar,nvarchar,varchar">
 	<cfset var result = false>
+	
 	<cfif ListFindNoCase(strtypes,arguments.type)>
 		<cfset result = true>
 	</cfif>

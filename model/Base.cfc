@@ -23,7 +23,12 @@
       local.attrs = local.fields[local.i].xmlAttributes;
       local.property = local.attrs.ColumnName;
       if (structKeyExists(local.attrs, "Default")) {
-        _muon.defaults[local.property] = evaluate(local.attrs.Default);
+        if (local.attrs.Default eq "current_timestamp()") {
+          local.default = now();
+        } else {
+          local.default = evaluate(local.attrs.Default);
+        }
+        _muon.defaults[local.property] = local.default;
       }
     }
   }

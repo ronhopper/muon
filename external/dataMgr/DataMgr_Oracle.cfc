@@ -1,5 +1,5 @@
-<!--- 2.2.0.2 (Build 151) --->
-<!--- Last Updated: 2009-06-13 --->
+<!--- 2.5 Alpha 1 (Build 156) --->
+<!--- Last Updated: 2009-08-18 --->
 <!--- Created by Beth Bowden and Steve Bryant 2007-01-14 --->
 <cfcomponent extends="DataMgr" displayname="Data Manager for Oracle" hint="I manage data interactions with the Oracle database. I can be used to handle inserts/updates.">
 
@@ -149,14 +149,14 @@ CREATE OR REPLACE TRIGGER #escape("BI_#arguments.tablename#")# #lf#  before inse
 	<cfargument name="tablename" type="string" required="yes" />
 
 	<cfscript>
-		var qStructure   = 0;
-		var qPrimaryKeys = 0;
-		var qIndices     = 0;
-		var TableData    = ArrayNew(1);
-		var tmpStruct    = StructNew();
-		var PrimaryKeys  = "";
-		var sqlarray     = ArrayNew(1);
-
+	var qStructure   = 0;
+	var qPrimaryKeys = 0;
+	var qIndices     = 0;
+	var TableData    = ArrayNew(1);
+	var tmpStruct    = StructNew();
+	var PrimaryKeys  = "";
+	var sqlarray     = ArrayNew(1);
+	
   	var qSequences = 0;
   	var Sequences = "";
 
@@ -227,30 +227,26 @@ CREATE OR REPLACE TRIGGER #escape("BI_#arguments.tablename#")# #lf#  before inse
 		<cfset tmpStruct["CF_DataType"] = getCFDataType(Type) />
 		<cfif ListFindNoCase(PrimaryKeys,Field)>
 			<cfset tmpStruct["PrimaryKey"] = true />
-		<cfelse>
-			<cfset tmpStruct["PrimaryKey"] = false />
 		</cfif>
 	  <!--- @@Note: Oracle has no equivalent to autoincrement or  identity  --->
 		<cfset tmpStruct["Increment"] = false>
 		<cfif   Len(MaxLength)
-        AND isNumeric(MaxLength)
-        AND NOT tmpStruct["CF_DataType"] eq "CF_SQL_LONGVARCHAR">
+	        AND isNumeric(MaxLength)
+    	    AND tmpStruct["CF_DataType"] NEQ "CF_SQL_LONGVARCHAR"
+		>
 			<cfset tmpStruct["length"] = MaxLength />
 		</cfif>
 		<cfif isBoolean(Trim(AllowNulls))>
 			<cfset tmpStruct["AllowNulls"] = Trim(AllowNulls)/>
-		<cfelse>
-			<cfset tmpStruct["AllowNulls"] = true />
 		</cfif>
 		<cfset tmpStruct["Precision"] = Precision />
 		<cfset tmpStruct["Scale"]     = Scale />
 		<cfif Len(Default)>
 			<cfset tmpStruct["Default"] = Default />
 		</cfif>
-		<cfset tmpStruct["Special"] = "" />
 
 		<cfif Len(tmpStruct.CF_DataType)>
-			<cfset ArrayAppend(TableData,StructCopy(tmpStruct))>
+			<cfset ArrayAppend(TableData,adjustColumnArgs(tmpStruct))>
 		</cfif>
 	</cfoutput>
 

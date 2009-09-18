@@ -1,5 +1,5 @@
-<!--- 2.2.0.2 (Build 151) --->
-<!--- Last Updated: 2009-06-13 --->
+<!--- 2.5 Alpha 1 (Build 156) --->
+<!--- Last Updated: 2009-08-18 --->
 <!--- Created by Steve Bryant 2004-12-08 --->
 <cfcomponent extends="DataMgr" displayname="Data Manager for MS SQL Server" hint="I manage data interactions with the MS SQL Server database. I can be used to handle inserts/updates.">
 
@@ -22,7 +22,7 @@
 	<cfset var type = getDBDataType(sField.CF_DataType)>
 	<cfset var result = "">
 	
-	<cfsavecontent variable="result"><cfoutput>#escape(sField.ColumnName)# #type#<cfif isStringType(type)> (#sField.Length#)<cfelseif getTypeOfCFType(sField.CF_DataType) EQ "numeric" AND StructKeyExists(sField,"scale") AND StructKeyExists(sField,"precision")>(#Val(sField.precision)#,#Val(sField.scale)#)</cfif><cfif sField.Increment> IDENTITY (1, 1)</cfif><cfif Len(Trim(sField.Default))> DEFAULT #sField.Default#<cfelseif sField.PrimaryKey AND sField.CF_DataType EQ "CF_SQL_IDSTAMP"> DEFAULT (newid())</cfif> <cfif sField.PrimaryKey OR NOT sField.AllowNulls>NOT </cfif>NULL</cfoutput></cfsavecontent>
+	<cfsavecontent variable="result"><cfoutput>#escape(sField.ColumnName)# #type#<cfif isStringType(type)> (#sField.Length#)<cfelseif getTypeOfCFType(sField.CF_DataType) EQ "numeric" AND StructKeyExists(sField,"scale") AND StructKeyExists(sField,"precision") AND type NEQ "float">(#Val(sField.precision)#,#Val(sField.scale)#)</cfif><cfif sField.Increment> IDENTITY (1, 1)</cfif><cfif Len(Trim(sField.Default))> DEFAULT #sField.Default#<cfelseif sField.PrimaryKey AND sField.CF_DataType EQ "CF_SQL_IDSTAMP"> DEFAULT (newid())</cfif> <cfif sField.PrimaryKey OR NOT sField.AllowNulls>NOT </cfif>NULL</cfoutput></cfsavecontent>
 	
 	<cfreturn result>
 </cffunction>
@@ -67,14 +67,39 @@
 	
 	<cfset var colname = "">
 	<cfset var result = "">
+	<cfset var aArgs = ArrayNew(1)>
 	
 	<cfloop index="colname" list="#arguments.fields#">
-		<cfif Len(result)>
-			<cfset result =  "#result# + '#arguments.delimeter#' + CAST(#colname# AS varchar(500))">
-		<cfelse>
-			<cfset result = "CAST(#colname# AS varchar(500))">
+		<cfif ArrayLen(aArgs)>
+			<cfset ArrayAppend(aArgs,arguments.delimeter)>
 		</cfif>
+		<cfset ArrayAppend(aArgs,"CAST(#colname# AS varchar(500))")>
 	</cfloop>
+	
+	<cfreturn concatSQL(aArgs)>
+</cffunction>
+
+<cffunction name="concatSQL" access="public" returntype="string" output="no">
+	
+	<cfset var result = "">
+	<cfset var str = "">
+	<cfset var ii = 0>
+	
+	<cfif ArrayLen(arguments)>
+		<cfif ArrayLen(arguments) EQ 1 AND isArray(arguments[1])>
+			<cfset arguments = arguments[1]> 
+		</cfif>
+		<cfloop index="ii" from="1" to="#ArrayLen(arguments)#" step="1">
+			<cfset str = arguments[ii]>
+			<cfif isSimpleValue(str)>
+				<cfif Len(result)>
+					<cfset result =  "#result# + #str#">
+				<cfelse>
+					<cfset result = str>
+				</cfif>
+			</cfif>
+		</cfloop>
+	</cfif>
 	
 	<cfreturn result>
 </cffunction>
@@ -183,31 +208,24 @@
 		<cfset tmpStruct["CF_DataType"] = getCFDataType(Type)>
 		<cfif ListFindNoCase(PrimaryKeys,Field)>
 			<cfset tmpStruct["PrimaryKey"] = true>
-		<cfelse>
-			<cfset tmpStruct["PrimaryKey"] = false>
 		</cfif>
 		<cfif isBoolean(Trim(IsIdentity))>
 			<cfset tmpStruct["Increment"] = IsIdentity>
-		<cfelse>
-			<cfset tmpStruct["Increment"] = false>
 		</cfif>
 		<cfif Len(MaxLength) AND isNumeric(MaxLength) AND NOT tmpStruct["CF_DataType"] eq "CF_SQL_LONGVARCHAR">
 			<cfset tmpStruct["length"] = MaxLength>
 		</cfif>
 		<cfif isBoolean(Trim(AllowNulls))>
 			<cfset tmpStruct["AllowNulls"] = Trim(AllowNulls)>
-		<cfelse>
-			<cfset tmpStruct["AllowNulls"] = true>
 		</cfif>
 		<cfset tmpStruct["Precision"] = Precision>
 		<cfset tmpStruct["Scale"] = Scale>
 		<cfif Len(Default)>
 			<cfset tmpStruct["Default"] = Default>
 		</cfif>
-		<cfset tmpStruct["Special"] = "">
 		
 		<cfif Len(tmpStruct.CF_DataType)>
-			<cfset ArrayAppend(TableData,StructCopy(tmpStruct))>
+			<cfset ArrayAppend(TableData,adjustColumnArgs(tmpStruct))>
 		</cfif>
 	</cfoutput>
 	
