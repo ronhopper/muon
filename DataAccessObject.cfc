@@ -61,6 +61,10 @@
     if (structKeyExists(_muon.dynamicMethods, missingMethodName)) {
       local.args = { method = missingMethodName, args = missingMethodArguments };
       return muonInvoke(_muon.dynamicMethods[missingMethodName], local.args);
+
+    } else if (structKeyExists(_muon.dataMgr, missingMethodName) and isCustomFunction(_muon.dataMgr[missingMethodName])) {
+      return evaluate("_muon.dataMgr.#missingMethodName#(argumentCollection=missingMethodArguments)");
+
     } else {
       muonThrowMethodNotFound(missingMethodName);
     }
