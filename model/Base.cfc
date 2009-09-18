@@ -16,6 +16,10 @@
     return this;
   }
 
+  function dao() {
+    return _muon.dao;
+  }
+
   function muonSetDefaults() {
     var local = {};
     local.fields = xmlSearch(_muon.schema, "//field");
