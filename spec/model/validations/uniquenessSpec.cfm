@@ -6,7 +6,6 @@
     dao = stub("DAO");
     metaData = {
       tableName = "widgets",
-      classPath = "muon.model.Base",
       schema = "<fields></fields>"
     };
     model = createObject("component", "muon.model.Base").init(dao, metaData);

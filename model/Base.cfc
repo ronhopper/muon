@@ -62,18 +62,18 @@
     var local = {};
     errors().clear();
     if (!muonRunCallbacks("beforeValidation", true)) return false;
-    muonRunValidations();
+    this.muonRunValidations();
     if (!errors().isEmpty()) return false;
     muonRunCallbacks("afterValidation", false);
     if (!muonRunCallbacks("beforeSave", true)) return false;
-    muonSave();
+    this.muonSave();
     muonRunCallbacks("afterSave", false);
     return true;
   }
 
   function delete() {
     if (!muonRunCallbacks("beforeDelete", true)) return false;
-    muonDelete();
+    this.muonDelete();
     muonRunCallbacks("afterDelete", false);
   }
 
