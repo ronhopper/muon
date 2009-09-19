@@ -3,10 +3,7 @@
 <describe hint="model.Base">
 
   <before>
-    <cfset inflector = stub("Inflector")>
-    <cfset inflector.stubs("pluralize").with("Widget").returns("Widgets")>
     <cfset dao = stub("DataAccessObject")>
-    <cfset dao.stubs("inflector").returns(inflector)>
     <cfset metaData = {
       tableName = "widgets",
       schema = '<table>
@@ -26,11 +23,6 @@
     <cfset errors = model.errors()>
     <cfset $(errors).shouldBeAnInstanceOf("muon.model.Errors")>
     <cfset $(model).errors().shouldBe(errors)>
-  </it>
-
-  <it should="have default values for properties">
-    <cfset $(model).getName().shouldEqual("foo")>
-    <cfset $(model).getCreatedAt().shouldBeDate()>
   </it>
 
   <describe hint="isNewRecord">
