@@ -20,23 +20,6 @@
     return _muon.dao;
   }
 
-  function muonSetDefaults() {
-    var local = {};
-    local.fields = xmlSearch(_muon.schema, "//field");
-    for (local.i = 1; local.i <= arrayLen(local.fields); local.i++) {
-      local.attrs = local.fields[local.i].xmlAttributes;
-      local.property = local.attrs.ColumnName;
-      if (structKeyExists(local.attrs, "Default")) {
-        if (local.attrs.Default eq "current_timestamp()") {
-          local.default = now();
-        } else {
-          local.default = evaluate(local.attrs.Default);
-        }
-        _muon.defaults[local.property] = local.default;
-      }
-    }
-  }
-
   function errors() {
     if (!structKeyExists(_muon, "errors")) {
       _muon.errors = createObject("component", "muon.model.Errors").init();
@@ -46,16 +29,6 @@
 
   function isNewRecord() {
     return !structKeyExists(_muon.data, "id") or _muon.data.id eq "";
-  }
-
-  function onMissingMethod(missingMethodName, missingMethodArguments) {
-    var local = {};
-    if (structKeyExists(_muon.dynamicMethods, missingMethodName)) {
-      local.args = { method = missingMethodName, args = missingMethodArguments };
-      return muonInvoke(_muon.dynamicMethods[missingMethodName], local.args);
-    } else {
-      _muon.dao.muonThrowMethodNotFound(missingMethodName, _muon.classPath);
-    }
   }
 
   function save() {
@@ -75,6 +48,33 @@
     if (!muonRunCallbacks("beforeDelete", true)) return false;
     this.muonDelete();
     muonRunCallbacks("afterDelete", false);
+  }
+
+  function muonSetDefaults() {
+    var local = {};
+    local.fields = xmlSearch(_muon.schema, "//field");
+    for (local.i = 1; local.i <= arrayLen(local.fields); local.i++) {
+      local.attrs = local.fields[local.i].xmlAttributes;
+      local.property = local.attrs.ColumnName;
+      if (structKeyExists(local.attrs, "Default")) {
+        if (local.attrs.Default eq "current_timestamp()") {
+          local.default = now();
+        } else {
+          local.default = evaluate(local.attrs.Default);
+        }
+        _muon.defaults[local.property] = local.default;
+      }
+    }
+  }
+
+  function onMissingMethod(missingMethodName, missingMethodArguments) {
+    var local = {};
+    if (structKeyExists(_muon.dynamicMethods, missingMethodName)) {
+      local.args = { method = missingMethodName, args = missingMethodArguments };
+      return muonInvoke(_muon.dynamicMethods[missingMethodName], local.args);
+    } else {
+      _muon.dao.muonThrowMethodNotFound(missingMethodName, _muon.classPath);
+    }
   }
 
   function muonEvaluate(expression) {
