@@ -125,7 +125,7 @@
   function muonGetHasOne(method, args) {
     var local = {};
     local.assoc = _muonAssociations[right(method, len(method) - 3)];
-    local.args = { data = { #local.assoc.foreignKey# = this.getId() }};
+    local.args.data[local.assoc.foreignKey] = this.getId();
     return _muon.dao.muonGet("get#local.assoc.modelName#", local.args);
   }
 
