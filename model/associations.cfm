@@ -96,9 +96,10 @@
     if (!structKeyExists(assoc, "foreignKey")) {
       assoc.foreignKey = _muon.modelName & "Id";
     }
+    _muonAssociations[assoc.singularName] = assoc;
     _muon.dynamicMethods["list#assoc.associationName#"] = "muonListHasMany";
-    _muon.dynamicMethods["new#assoc.singularName#"] = "muonNewHasMany"; //TODO
-    _muon.dynamicMethods["get#assoc.singularName#"] = "muonGetHasMany"; //TODO
+    _muon.dynamicMethods["new#assoc.singularName#"] = "muonNewHasMany";
+    _muon.dynamicMethods["get#assoc.singularName#"] = "muonGetHasMany";
     _muon.dynamicMethods["add#assoc.singularName#"] = "muonAddHasMany"; //TODO
     _muon.dynamicMethods["remove#assoc.singularName#"] = "muonRemoveHasMany"; //TODO
   }
@@ -129,6 +130,10 @@
     return _muon.dao.muonGet("get#local.assoc.modelName#", local.args);
   }
 
+  function muonSetHasOne(method, args) {
+    // TODO
+  }
+
   function muonListHasMany(method, args) {
     var local = {};
     local.assoc = _muonAssociations[right(method, len(method) - 4)];
@@ -140,6 +145,36 @@
       args.data[local.assoc.foreignKey] = this.getId();
     }
     return _muon.dao.muonList("list#local.tableName#", args);
+  }
+
+  function muonNewHasMany(method, args) {
+    var local = {};
+    local.assoc = _muonAssociations[right(method, len(method) - 3)];
+    if (isNumeric(listFirst(structKeyList(args))) and arrayLen(args) ge 1) {
+      args[1][local.assoc.foreignKey] = this.getId();
+    } else {
+      args[local.assoc.foreignKey] = this.getId();
+    }
+    return _muon.dao.muonNew("new#local.assoc.modelName#", args);
+  }
+
+  function muonGetHasMany(method, args) {
+    var local = {};
+    local.assoc = _muonAssociations[right(method, len(method) - 3)];
+    local.args = {};
+    if (isNumeric(listFirst(structKeyList(args)))) {
+      local.count = arrayLen(args);
+      if (local.count ge 1) local.args.data = args[1];
+      if (local.count ge 2) local.args.fieldList = args[2];
+    } else {
+      structAppend(local.args, args);
+    }
+    if (!isStruct(local.args.data)) {
+      local.id = local.args.data;
+      local.args.data = { id = local.id };
+    }
+    local.args.data[local.assoc.foreignKey] = this.getId();
+    return _muon.dao.muonGet("get#local.assoc.modelName#", local.args);
   }
 
 </cfscript>
