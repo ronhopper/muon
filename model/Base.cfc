@@ -45,9 +45,11 @@
   }
 
   function delete() {
+    if (this.isNewRecord()) return false;
     if (!muonRunCallbacks("beforeDelete", true)) return false;
     this.muonDelete();
     muonRunCallbacks("afterDelete", false);
+    return true;
   }
 
   function muonSetDefaults() {
