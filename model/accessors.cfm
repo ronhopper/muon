@@ -5,7 +5,11 @@
     local.fields = xmlSearch(_muon.schema, "//field");
     for (local.i = 1; local.i <= arrayLen(local.fields); local.i++) {
       local.property = local.fields[local.i].xmlAttributes['ColumnName'];
-      propertyAccessor(local.property);
+      local.scrubbedProperty = reReplaceNoCase(local.property, "[^a-z0-9]+", "", "all");
+      if (local.property neq local.scrubbedProperty) {
+        _muon.aliases[local.scrubbedProperty] = local.property;
+      }
+      propertyAccessor(local.scrubbedProperty);
     }
   }
 
@@ -30,19 +34,28 @@
       local.args = arguments;
     }
     for (local.key in local.args) {
-      evaluate("this.set#local.key#(local.args[local.key])");
+      if (structKeyExists(this, "set#local.key#") or structKeyExists(_muon.dynamicMethods, "set#local.key#")) {
+        evaluate("this.set#local.key#(local.args[local.key])");
+      }
     }
   }
 
   function muonGet(method, args) {
     var property = right(method, len(method) - 3);
+    var result = "";
+    if (structKeyExists(_muon.aliases, property)) property = _muon.aliases[property];
     if (structKeyExists(_muon.data, property)) return _muon.data[property];
-    if (structKeyExists(_muon.defaults, property)) return _muon.defaults[property];
+    if (structKeyExists(_muon.defaults, property)) {
+      result = dao().runSQL("select (#_muon.defaults[property]#) as value");
+      return result.value;
+    }
     return "";
   }
 
   function muonSet(method, args) {
-    _muon.data[right(method, len(method) - 3)] = args[1];
+    var property = right(method, len(method) - 3);
+    if (structKeyExists(_muon.aliases, property)) property = _muon.aliases[property];
+    _muon.data[property] = args[1];
   }
 
   function muonSetProperties() {

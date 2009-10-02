@@ -1,11 +1,11 @@
-<cfcomponent>
+<cfcomponent output="false">
 <cfinclude template="accessors.cfm">
 <cfinclude template="callbacks.cfm">
 <cfinclude template="associations.cfm">
 <cfinclude template="validations.cfm">
 <cfscript>
 
-  _muon = { data = {}, defaults = {}, dynamicMethods = {} };
+  _muon = { data = {}, aliases = {}, defaults = {}, dynamicMethods = {} };
 
   function init(dao, metaData) {
     _muon.dao = dao;
@@ -57,23 +57,8 @@
       local.attrs = local.fields[local.i].xmlAttributes;
       local.property = local.attrs.ColumnName;
       if (structKeyExists(local.attrs, "Default")) {
-        if (local.attrs.Default eq "current_timestamp()") {
-          local.default = now();
-        } else {
-          local.default = evaluate(local.attrs.Default);
-        }
-        _muon.defaults[local.property] = local.default;
+        _muon.defaults[local.property] = local.attrs.Default;
       }
-    }
-  }
-
-  function onMissingMethod(missingMethodName, missingMethodArguments) {
-    var local = {};
-    if (structKeyExists(_muon.dynamicMethods, missingMethodName)) {
-      local.args = { method = missingMethodName, args = missingMethodArguments };
-      return muonInvoke(_muon.dynamicMethods[missingMethodName], local.args);
-    } else {
-      _muon.dao.muonThrowMethodNotFound(missingMethodName, _muon.classPath);
     }
   }
 
@@ -83,7 +68,17 @@
 
   function muonSave() {
     var id = "";
+    var userId = "";
+    if (isDefined("session.userId")) userId = session.userId;
+    if (val(userId)) {
+      _muon.data.updatedBy = userId;
+      _muon.data.updated_by = userId;
+    }
     if (isNewRecord()) {
+      if (val(userId)) {
+        _muon.data.createdBy = userId;
+        _muon.data.created_by = userId;
+      }
       id = _muon.dao.muonInsertRecord(_muon.tableName, _muon.data);
       if (isDefined("id")) _muon.data.id = id;
     } else {
@@ -107,5 +102,20 @@
     <cfreturn result>
   </cfif>
 </cffunction>
+
+<cffunction name="onMissingMethod" output="false">
+  <cfargument name="missingMethodName">
+  <cfargument name="missingMethodArguments">
+  <cfscript>
+    var local = {};
+    if (structKeyExists(_muon.dynamicMethods, missingMethodName)) {
+      local.args = { method = missingMethodName, args = missingMethodArguments };
+      return muonInvoke(_muon.dynamicMethods[missingMethodName], local.args);
+    } else {
+      _muon.dao.muonThrowMethodNotFound(missingMethodName, _muon.classPath);
+    }
+  </cfscript>
+</cffunction>
+
 
 </cfcomponent>
