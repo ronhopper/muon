@@ -5,7 +5,7 @@
 <cfinclude template="validations.cfm">
 <cfscript>
 
-  _muon = { data = {}, aliases = {}, defaults = {}, dynamicMethods = {} };
+  _muon = { data = {}, originalData = {}, aliases = {}, defaults = {}, dynamicMethods = {} };
 
   function init(dao, metaData) {
     _muon.dao = dao;

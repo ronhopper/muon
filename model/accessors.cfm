@@ -40,6 +40,14 @@
     }
   }
 
+  function rollBackProperty(property) {
+    if (structKeyExists(_muon.originalData, property)) {
+      _muon.data[property] = _muon.originalData[property];
+    } else {
+      structDelete(_muon.data, property);
+    }
+  }
+
   function muonGet(method, args) {
     var property = right(method, len(method) - 3);
     var result = "";
@@ -74,6 +82,7 @@
         _muon.data[local.field] = local.args[local.field][1];
       }
     }
+    _muon.originalData = structCopy(_muon.data);
   }
 
 </cfscript>
