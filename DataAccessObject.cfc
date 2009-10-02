@@ -1,6 +1,6 @@
-<cfcomponent><cfscript>
+<cfcomponent output="false"><cfscript>
 
-  function init(datasource, schemaPath, modelPrefix) {
+  function init(datasource, modelPrefix, schemaPath) {
     _muon = {
       dynamicMethods = {},
       models = {}
@@ -11,13 +11,12 @@
   }
 
   function muonSetupDataMgr(datasource, schemaPath) {
-    var isTest = reFindNoCase("_test$", datasource);
     if (datasource eq "simulation") {
-      _muon.dataMgr = createObject("component", "external.dataMgr.DataMgr").init("test", "Sim");
+      _muon.dataMgr = createObject("component", "external.dataMgr.DataMgr").init(datasource="test", database="Sim");
     } else {
-      _muon.dataMgr = createObject("component", "external.dataMgr.DataMgr").init(datasource);
+      _muon.dataMgr = createObject("component", "external.dataMgr.DataMgr").init(datasource=datasource, smartCache=true);
     }
-    _muon.dataMgr.loadXml(muonReadFile(schemaPath), isTest, isTest);
+    _muon.dataMgr.loadXml(muonReadFile(schemaPath), true, true);
   }
 
   function muonSetupModels(modelPrefix) {
@@ -47,10 +46,17 @@
     _muon.models[modelName] = {
       classPath = "#modelPrefix#.#modelName#",
       modelName = modelName,
-      tableName = local.tableName,
-      schema = xmlParse(_muon.dataMgr.getXML(local.tableName))
+      tableName = local.tableName
     };
-
+    try {
+      local.schema = _muon.dataMgr.getXML(local.tableName);
+    } catch (Any e) {
+      local.schema = "<fields></fields>";
+    }
+    _muon.models[modelName].schema = xmlParse(local.schema);
+    if (!structKeyExists(_muon.models, local.tableName)) {
+      _muon.models[local.tableName] = _muon.models[modelName];
+    }
     _muon.dynamicMethods["list#local.tableName#"] = "muonList";
     _muon.dynamicMethods["new#modelName#"] = "muonNew";
     _muon.dynamicMethods["get#modelName#"] = "muonGet";
@@ -112,7 +118,7 @@
       local.args.data = { id = local.id };
     }
 
-    local.record = _muon.dataMgr.getRecord(argumentCollection=local.args);
+    local.record = _muon.dataMgr.getRecords(argumentCollection=local.args);
     if (local.record.recordCount neq 1) return false;
 
     local.object = createObject("component", local.model.classPath).init(this, local.model);
@@ -165,7 +171,8 @@
 <cffunction name="muonReadFile">
   <cfargument name="path">
   <cfset var content = "">
-  <cffile action="read" file="#path#" variable="content">
+  <cfset var root = getDirectoryFromPath(getBaseTemplatePath())>
+  <cffile action="read" file="#replace(path, '%ROOT%', root, 'all')#" variable="content">
   <cfreturn content>
 </cffunction>
 
