@@ -71,7 +71,9 @@
   function muonSave() {
     var id = "";
     var userId = "";
-    if (isDefined("session.userId")) userId = session.userId;
+    try {
+      if (isDefined("session.userId")) userId = session.userId;
+    } catch (Any e) {}
     if (val(userId)) {
       _muon.data.updatedBy = userId;
       _muon.data.updated_by = userId;
