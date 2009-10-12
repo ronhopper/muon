@@ -1,10 +1,10 @@
-<!--- 2.5 Alpha 1 (Build 156) --->
-<!--- Last Updated: 2009-08-18 --->
+<!--- 2.5 Alpha 2 Dev 1 (Build 157) --->
+<!--- Last Updated: 2009-09-28 --->
 <!--- Created by Steve Bryant 2004-12-08 --->
 <!--- Information: sebtools.com --->
 <cfcomponent displayname="Data Manager" hint="I manage data interactions with the database. I can be used to handle inserts/updates.">
 
-<cfset variables.DataMgrVersion = "2.3 Dev 3">
+<cfset variables.DataMgrVersion = "2.5 Alpha 2 Dev 1">
 <cfif isDefined("Application") AND StructKeyExists(Application,"Datasource")>
 	<cfset variables.DefaultDatasource = Application.Datasource>
 <cfelse>
@@ -139,6 +139,39 @@
 	<cfreturn CreateSQL>
 </cffunction>
 
+<cffunction name="dbtableexists" access="public" returntype="boolean" output="no" hint="I indicate whether or not the given table exists in the database">
+	<cfargument name="tablename" type="string" required="true">
+	<cfargument name="dbtables" type="string" default="">
+	
+	<cfset var result = false>
+	
+	<cfif NOT ( StructKeyExists(arguments,"dbtables") AND Len(Trim(arguments.dbtables)) )>
+		<cfset arguments.dbtables = "">
+		<cftry><!--- Try to get a list of tables load in DataMgr --->
+			<cfset arguments.dbtables = getDatabaseTables()>
+		<cfcatch>
+		</cfcatch>
+		</cftry>
+	</cfif>
+	
+	<cfif Len(arguments.dbtables)><!--- If we have tables loaded in DataMgr --->
+		<cfif ListFindNoCase(arguments.dbtables, arguments.tablename)>
+			<cfset result = true>
+		</cfif>
+	</cfif>
+	<cfif NOT result>
+		<cfset result = true>
+		<cftry><!--- create any table on which a select statement errors --->
+			<cfset qTest = runSQL("SELECT #getMaxRowsPrefix(1)# #escape(variables.tables[arguments.tablename][1].ColumnName)# FROM #escape(arguments.tablename)# #getMaxRowsSuffix(1)#")>
+			<cfcatch>
+				<cfset result = false>
+			</cfcatch>
+		</cftry>
+	</cfif>
+	
+	<cfreturn result>
+</cffunction>
+
 <cffunction name="CreateTables" access="public" returntype="void" output="no" hint="I create any tables that I know should exist in the database but don't.">
 	<cfargument name="tables" type="string" default="#variables.tables#" hint="I am a list of tables to create. If I am not provided createTables will try to create any table that has been loaded into it but does not exist in the database.">
 
@@ -154,31 +187,9 @@
 	</cfcatch>
 	</cftry>
 	
-	<cfif Len(dbtables)><!--- If we have tables loaded in DataMgr --->
-		<cfloop index="table" list="#arguments.tables#">
-			<!--- See if this table is loaded in DataMgr --->
-			<cfif ListFindNoCase(dbtables, table)>
-				<cfset tablesExist[table] = true>
-			<cfelse>
-				<cfset tablesExist[table] = false><!--- Creatare any table not already loaded in DataMgr --->
-			</cfif>
-		</cfloop>
-	<cfelse><!--- If we don't have tables loaded in DataMgr --->
-		<cfloop index="table" list="#arguments.tables#">
-			<!--- Assume table exists and then try to run a SQL statement against it --->
-			<cfset tablesExist[table] = true>
-			<cftry><!--- create any table on which a select statement errors --->
-				<cfset qTest = runSQL("SELECT #getMaxRowsPrefix(1)# #escape(variables.tables[table][1].ColumnName)# FROM #escape(table)# #getMaxRowsSuffix(1)#")>
-				<cfcatch>
-					<cfset tablesExist[table] = false>
-				</cfcatch>
-			</cftry>
-		</cfloop>
-	</cfif>
-	
 	<cfloop index="table" list="#arguments.tables#">
 		<!--- Create table if it doesn't exist --->
-		<cfif NOT tablesExist[table]>
+		<cfif NOT dbtableexists(table,dbtables)>
 			<cftry>
 				<cfset createTable(table)>
 				<cfcatch type="DataMgr">
@@ -675,7 +686,7 @@
 
 <cffunction name="getRecords" access="public" returntype="query" output="no" hint="I get a recordset based on the data given.">
 	<cfargument name="tablename" type="string" required="yes" hint="The table from which to return a record.">
-	<cfargument name="data" type="struct" required="no" hint="A structure with the data for the desired record. Each key/value indicates a value for the field matching that key.">
+	<cfargument name="data" type="any" required="no" hint="A structure with the data for the desired record. Each key/value indicates a value for the field matching that key.">
 	<cfargument name="orderBy" type="string" default="">
 	<cfargument name="maxrows" type="numeric" required="no">
 	<cfargument name="fieldlist" type="string" default="" hint="A list of fields to return. If left blank, all fields will be returned.">
@@ -813,7 +824,7 @@
 
 <cffunction name="getRecordsSQL" access="public" returntype="array" output="no" hint="I get the SQL to get a recordset based on the data given.">
 	<cfargument name="tablename" type="string" required="yes" hint="The table from which to return a record.">
-	<cfargument name="data" type="struct" required="no" hint="A structure with the data for the desired record. Each key/value indicates a value for the field matching that key.">
+	<cfargument name="data" type="any" required="no" hint="A structure with the data for the desired record. Each key/value indicates a value for the field matching that key.">
 	<cfargument name="orderBy" type="string" default="">
 	<cfargument name="maxrows" type="numeric" default="0">
 	<cfargument name="fieldlist" type="string" default="" hint="A list of fields to return. If left blank, all fields will be returned.">
@@ -834,8 +845,20 @@
 	<cfset var temp = "">
 	<cfset var sArgs = 0>
 	
+	<!--- Convert data argument to "in" struct --->
 	<cfif StructKeyExists(arguments,"data")>
-		<cfset in = arguments.data>
+		<cfif isStruct(arguments.data)>
+			<cfset in = arguments.data>
+		<cfelseif isSimpleValue(arguments.data)>
+			<cfif ArrayLen(pkfields) EQ 1>
+				<cfset in = StructNew()>
+				<cfset in[pkfields[1].ColumnName] = arguments.data>
+			<cfelse>
+				<cfset throwDMError("Data argument can only be a string for tables with simple (single column) primary keys.")>
+			</cfif>
+		<cfelse>
+			<cfset throwDMError("Data argument must be either a struct or a string.")>
+		</cfif>
 	</cfif>
 	
 	<cfif NOT StructKeyExists(arguments,"tablealias")>
@@ -2125,16 +2148,17 @@
 </cffunction>
 
 <cffunction name="loadXML" access="public" returntype="void" output="false" hint="I add tables from XML and optionally create tables/columns as needed (I can also load data to a table upon its creation).">
-	<cfargument name="xmldata" type="string" required="yes" hint="XML data of tables to load into DataMgr follows. Schema: http://www.bryantwebconsulting.com/cfcs/DataMgr.xsd">
+	<cfargument name="xmldata" type="string" required="yes" hint="XML data of tables and columns to load into DataMgr. Follows schema: http://www.bryantwebconsulting.com/cfcs/DataMgr.xsd">
 	<cfargument name="docreate" type="boolean" default="false" hint="I indicate if the table should be created in the database if it doesn't already exist.">
 	<cfargument name="addcolumns" type="boolean" default="false" hint="I indicate if missing columns should be be created.">
 	
 	<cfscript>
+	var xmlstring = "";
 	var dbtables = "";
 	var MyTables = StructNew();
-	var varXML = XmlParse(arguments.xmldata,"no");
-	var xTables = varXML.XmlRoot.XmlChildren;
-	var xData = XmlSearch(varXML, "//data");
+	var varXML = 0;
+	var xTables = 0;
+	var xData = 0;
 	
 	var i = 0;
 	var j = 0;
@@ -2158,6 +2182,21 @@
 	var sArgs = 0;
 	var sFilter = 0;
 	var key = "";
+	</cfscript>
+	
+	<cfif arguments.xmldata CONTAINS "</tables>">
+		<cfset xmlstring = arguments.xmldata>
+	<cfelseif FileExists(arguments.xmldata)>
+		<cffile action="read" file="#arguments.xmldata#" variable="xmlstring">
+	<cfelse>
+		<cfset throwDMError("xmldata argument for LoadXML must be a valid XML string or a path to a file holding a valid XML string.","LoadFailed")>
+	</cfif>
+	
+	
+	<cfscript>
+	varXML = XmlParse(xmlstring,"no");
+	xTables = varXML.XmlRoot.XmlChildren;
+	xData = XmlSearch(varXML, "//data");
 	</cfscript>
 	
 	<cftry>
@@ -2360,11 +2399,11 @@
 	if ( arguments.addcolumns ) {
 		//Loop over tables (from XML)
 		for ( mytable in MyTables ) {
+			// get list of fields in table
+			fieldlist = getDBFieldList(mytable);
 			//Loop over fields (from XML)
 			for ( i=1; i LTE ArrayLen(MyTables[mytable]); i=i+1 ) {
 				colExists = false;
-				// get list of fields in table
-				fieldlist = getDBFieldList(mytable);
 				//check for existence of this field
 				if ( ListFindNoCase(fieldlist,MyTables[mytable][i].ColumnName) OR StructKeyExists(MyTables[mytable][i],"Relation") OR NOT StructKeyExists(MyTables[mytable][i],"CF_DataType") ) {
 					colExists = true;
@@ -2890,6 +2929,7 @@
 	<cfargument name="data" type="struct" required="yes" hint="A structure with the data for the desired record. Each key/value indicates a value for the field matching that key.">
 	
 	<cfscript>
+	var bTable = checkTable(arguments.tablename);//Check whether table is loaded
 	var sTables = getTableData();
 	var aColumns = sTables[arguments.tablename];
 	var ii = 0;
@@ -2941,8 +2981,9 @@
 	</cfif>
 	
 	<cfset sqlarray = updateRecordSQL(argumentCollection=arguments)>
+	
 	<cfif ArrayLen(sqlarray)>
-		<cfset runSQLArray(sqlarray)> 
+		<cfset runSQLArray(sqlarray)>
 	</cfif>
 	
 	<cfset result = qGetUpdateRecord[pkfields[1].ColumnName][1]>
@@ -3105,7 +3146,6 @@
 	<cfset ArrayAppend(sqlarray,"WHERE	1 = 1")>
 	<cfset ArrayAppend(sqlarray,getWhereSQL(tablename=arguments.tablename,data=arguments.data_where,filters=arguments.filters))>
 	<cfif fieldcount>
-		<cfset runSQLArray(sqlarray)>
 		<cfset fieldcount = 0>
 	<cfelse>
 		<cfset sqlarray = ArrayNew(1)>
