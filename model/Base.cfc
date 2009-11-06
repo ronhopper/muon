@@ -33,14 +33,22 @@
 
   function save() {
     var local = {};
+    if (!arrayLen(arguments) or arguments[1]) {
+      if (!checkValid()) return false;
+    }
+    if (!muonRunCallbacks("beforeSave", true)) return false;
+    this.muonSave();
+    muonRunCallbacks("afterSave", false);
+    return true;
+  }
+
+  function checkValid() {
+    var local = {};
     errors().clear();
     if (!muonRunCallbacks("beforeValidation", true)) return false;
     this.muonRunValidations();
     if (!errors().isEmpty()) return false;
     muonRunCallbacks("afterValidation", false);
-    if (!muonRunCallbacks("beforeSave", true)) return false;
-    this.muonSave();
-    muonRunCallbacks("afterSave", false);
     return true;
   }
 
