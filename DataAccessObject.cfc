@@ -13,9 +13,10 @@
 
   function recreateDatabase() {
     var local = {};
+    if (arrayLen(arguments) eq 0) arrayAppend(arguments, "truncate");
     local.tables = _muon.dataMgr.runSql("select table_name from information_schema.tables where table_type = 'BASE TABLE'");
     for (local.i = 1; local.i <= local.tables.recordCount; local.i++) {
-      _muon.dataMgr.runSql("truncate table #local.tables.table_name[local.i]#");
+      _muon.dataMgr.runSql("#arguments[1]# table #local.tables.table_name[local.i]#");
     }
     _muon.dataMgr.loadXml(muonReadFile(_muon.schemaPath), true, true);
   }
